@@ -121,6 +121,9 @@ export class TanaGraphImporter {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
 				this.convertNodeRecursive(child, fragments, indent + 1);
 			}
+			else {
+				fragments.push(this.generateLink(child.id));
+			}
 		});
 	}
 
@@ -133,11 +136,13 @@ export class TanaGraphImporter {
 		this.enumerateChildren(node, (child => this.convertMetaNode(child, fragments, indent)));
 	}
 
+	private generateLink(id: string): string {
+		return '[[' + (this.nodes.get(id)?.props?.name ?? '#') + ']]';
+	}
+
 	private convertMarkup(text: string): string {
 		return text
-			.replace(inlineRefRegex, (_, id) =>
-				'[[' + (this.nodes.get(id)?.props?.name ?? '#') + ']]'
-			)
+			.replace(inlineRefRegex, (_, id) => this.generateLink(id))
 			.replace(boldRegex, (_, content) => '**' + content + '**')
 			.replace(italicRegex, (_, content) => '*' + content + '*');
 	}
