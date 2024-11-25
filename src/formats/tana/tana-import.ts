@@ -45,7 +45,7 @@ export class TanaGraphImporter {
 			console.log('Library node not found');
 		}
 
-		for (let suffix of ['_TRASH', '_SCHEMA', '_SIDEBAR_AREAS', '_USERS']) {
+		for (let suffix of ['_TRASH', '_SCHEMA', '_SIDEBAR_AREAS', '_USERS', '_SEARCHES', '_MOVETO', '_WORKSPACE']) {
 			const specialNode = this.nodes.get(rootNode.id + suffix);
 			if (specialNode != null) {
 				this.markSeen(specialNode);
@@ -96,25 +96,34 @@ export class TanaGraphImporter {
 	}
 
 	private convertNode(node: TanaDoc, filename: string) {
-		this.convertedNodes.add(node.id);
 		const fragments: Array<string> = [];
-		this.enumerateChildren(node, (child) => {
-			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
-				this.convertNodeRecursive(child, fragments, 0);
-			}
-		});
+		this.convertNodeRecursive(node, fragments, 0);
 		this.result.set(filename + '.md', fragments.join('\n'));
 	}
 
-	private convertNodeRecursive(node: TanaDoc, fragments: Array<string>, indent: number) {
+	private convertNodeRecursive(node: TanaDoc, fragments: string[], indent: number) {
 		this.convertedNodes.add(node.id);
-		const prefix = ' '.repeat(indent * 2) + '*';
-		fragments.push(prefix + ' ' + this.convertMarkup(node.props.name ?? ''));
+		if (node.props._metaNodeId) {
+			this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
+		}
+		if (indent > 0) {
+			const prefix = ' '.repeat(indent * 2) + '*';
+			fragments.push(prefix + ' ' + this.convertMarkup(node.props.name ?? ''));
+		}
 		this.enumerateChildren(node, (child) => {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
 				this.convertNodeRecursive(child, fragments, indent + 1);
 			}
 		});
+	}
+
+	private convertMetaNode(node: TanaDoc | undefined, fragments: string[], indent: number) {
+		if (!node) return;
+		if (node.props.name) {
+			fragments.push('#' + node.props.name);
+		}
+		this.convertedNodes.add(node.id);
+		this.enumerateChildren(node, (child => this.convertMetaNode(child, fragments, indent)));
 	}
 
 	private convertMarkup(text: string): string {
@@ -127,8 +136,15 @@ export class TanaGraphImporter {
 	}
 
 	private markSeen(node: TanaDoc) {
+		if (this.convertedNodes.has(node.id)) return;
 		this.convertedNodes.add(node.id);
 		this.enumerateChildren(node, (child) => this.markSeen(child));
+		if (node.props._metaNodeId) {
+			const metaNode = this.nodes.get(node.props._metaNodeId);
+			if (metaNode) {
+				this.markSeen(metaNode);
+			}
+		}
 	}
 
 	private enumerateChildren(node: TanaDoc, callback: (child: TanaDoc) => void) {
