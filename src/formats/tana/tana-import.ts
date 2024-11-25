@@ -104,6 +104,11 @@ export class TanaGraphImporter {
 	}
 
 	private convertNodeRecursive(node: TanaDoc, fragments: string[], indent: number) {
+		if (node.props._docType == 'tuple') {
+			this.markSeen(node);
+			return;
+		}
+
 		this.convertedNodes.add(node.id);
 		if (node.props._metaNodeId) {
 			this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
