@@ -1,5 +1,9 @@
 import { TanaDatabase, TanaDoc } from './models/tana-json';
 
+const inlineRefRegex = /<span data-inlineref-node="(.+)"><\/span>/g;
+const boldRegex = /<b>(.*?)<\/b>/g;
+const italicRegex = /<i>(.*?)<\/i>/g;
+
 export class TanaGraphImporter {
 	public result: Map<string, string> = new Map();
 	private tanaDatabase: TanaDatabase;
@@ -105,12 +109,21 @@ export class TanaGraphImporter {
 	private convertNodeRecursive(node: TanaDoc, fragments: Array<string>, indent: number) {
 		this.convertedNodes.add(node.id);
 		const prefix = ' '.repeat(indent * 2) + '*';
-		fragments.push(prefix + ' ' + node.props.name);
+		fragments.push(prefix + ' ' + this.convertMarkup(node.props.name ?? ''));
 		this.enumerateChildren(node, (child) => {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
 				this.convertNodeRecursive(child, fragments, indent + 1);
 			}
 		});
+	}
+
+	private convertMarkup(text: string): string {
+		return text
+			.replace(inlineRefRegex, (_, id) =>
+				'[[' + (this.nodes.get(id)?.props?.name ?? '#') + ']]'
+			)
+			.replace(boldRegex, (_, content) => '**' + content + '**')
+			.replace(italicRegex, (_, content) => '*' + content + '*');
 	}
 
 	private markSeen(node: TanaDoc) {
