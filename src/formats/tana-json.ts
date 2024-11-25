@@ -20,6 +20,10 @@ export class TanaJSONImporter extends FormatImporter {
 		for (let file of files) {
 			const data = await file.readText();
 			importer.importTanaGraph(data);
+			if (importer.fatalError) {
+				new Notice(importer.fatalError);
+				return;
+			}
 		}
 
 		const totalCount = importer.result.size;
@@ -39,5 +43,6 @@ export class TanaJSONImporter extends FormatImporter {
 			}
 			index++;
 		}
+		await this.vault.create('conversion-log.md', importer.notices.join('\n\n'));
 	}
 }

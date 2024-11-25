@@ -9,6 +9,8 @@ export class TanaGraphImporter {
 	private tanaDatabase: TanaDatabase;
 	private nodes: Map<string, TanaDoc>;
 	private convertedNodes: Set<string> = new Set();
+	public fatalError: string | null;
+	public notices: string[] = [];
 
 	public importTanaGraph(data: string) {
 		this.tanaDatabase = JSON.parse(data) as TanaDatabase;
@@ -17,14 +19,14 @@ export class TanaGraphImporter {
 
 		const rootNode = this.tanaDatabase.docs.find(n => n.props.name && n.props.name.startsWith('Root node for'));
 		if (!rootNode) {
-			console.log('Root node not found');
+			this.fatalError = 'Root node not found';
 			return;
 		}
 		this.convertedNodes.add(rootNode.id);
 
 		const workspaceNode = this.nodes.get(rootNode.children[0]);
 		if (!workspaceNode) {
-			console.log('Workspace node not found');
+			this.fatalError = 'Workspace node not found';
 			return;
 		}
 		this.convertedNodes.add(workspaceNode.id);
@@ -42,7 +44,7 @@ export class TanaGraphImporter {
 			this.importLibraryNode(libraryNode);
 		}
 		else {
-			console.log('Library node not found');
+			this.notices.push('Library node not found');
 		}
 
 		for (let suffix of ['_TRASH', '_SCHEMA', '_SIDEBAR_AREAS', '_USERS', '_SEARCHES', '_MOVETO', '_WORKSPACE']) {
@@ -51,7 +53,7 @@ export class TanaGraphImporter {
 				this.markSeen(specialNode);
 			}
 			else {
-				console.log('Special node ' + suffix + ' not found');
+				this.notices.push('Special node ' + suffix + ' not found');
 			}
 		}
 
@@ -61,12 +63,12 @@ export class TanaGraphImporter {
 			}
 		});
 
-		console.log('Converted ' + this.convertedNodes.size + ' nodes');
+		this.notices.push('Converted ' + this.convertedNodes.size + ' nodes');
 		let unconverted = 0;
 		for (let node of this.tanaDatabase.docs) {
 			if (!this.convertedNodes.has(node.id) && !node.id.startsWith('SYS') &&
 				node.props._docType != 'workspace') {
-				console.log('Found unconverted node: ' + node.id);
+				this.notices.push('Found unconverted node: ' + node.id);
 				unconverted++;
 				if (unconverted == 20) break;
 			}
@@ -156,7 +158,7 @@ export class TanaGraphImporter {
 				callback(childNode);
 			}
 			else {
-				console.log('Node with id ' + childId + ' not found');
+				this.notices.push('Node with id ' + childId + ' (parent ' + (node.props.name ?? node.id) + ') not found');
 			}
 		}
 	}
