@@ -6,6 +6,7 @@ export interface TanaProps {
 	_ownerId: string;
 	_metaNodeId: string | null;
 	_flags: number | null;
+	_done: number | null;
 }
 
 export interface TanaDoc {

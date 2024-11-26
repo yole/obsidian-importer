@@ -157,14 +157,18 @@ export class TanaGraphImporter {
 		}
 
 		this.convertedNodes.add(node.id);
+		let props: any = {};
 		if (node.props._metaNodeId) {
-			this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
+			props = this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
 		}
 		if (indent > 0) {
 			const prefix = ' '.repeat(indent * 2) + '*';
 			const anchor = this.anchors.has(node.id) ? (' ^' + node.id.replace('_', '-')) : '';
 			const header = node.props._flags && ((node.props._flags & 2) != 0) ? '### ' : '';
-			fragments.push(prefix + ' ' + header + this.convertMarkup(node.props.name ?? '') + anchor);
+			const checkbox = props.checkbox
+				? (node.props._done ? '[x] ' : '[ ] ')
+				: '';
+			fragments.push(prefix + ' ' + checkbox + header + this.convertMarkup(node.props.name ?? '') + anchor);
 		}
 		this.enumerateChildren(node, (child) => {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
@@ -176,7 +180,8 @@ export class TanaGraphImporter {
 		});
 	}
 
-	private convertMetaNode(node: TanaDoc | undefined, fragments: string[], indent: number) {
+	private convertMetaNode(node: TanaDoc | undefined, fragments: string[], indent: number): any {
+		const result: any = {};
 		if (!node) return;
 		this.markSeen(node);
 		const props = this.collectNodeProperties(node);
@@ -184,7 +189,11 @@ export class TanaGraphImporter {
 			if (id == 'SYS_A13') {
 				fragments.push('#' + v);
 			}
+			else if (id == 'SYS_A55') {
+				result.checkbox = true;
+			}
 		}
+		return result;
 	}
 
 	private generateLink(id: string): string {
