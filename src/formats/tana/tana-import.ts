@@ -127,7 +127,7 @@ export class TanaGraphImporter {
 		const properties = this.collectNodeProperties(node);
 		if (properties.length > 0) {
 			fragments.push('---');
-			for (const [k, v] of properties) {
+			for (const [, k, v] of properties) {
 				fragments.push(k + ': ' + v);
 			}
 			fragments.push('---');
@@ -136,14 +136,14 @@ export class TanaGraphImporter {
 		this.result.set(filename + '.md', fragments.join('\n'));
 	}
 
-	private collectNodeProperties(node: TanaDoc): Array<[string, string]> {
-		const properties: Array<[string, string]> = [];
+	private collectNodeProperties(node: TanaDoc): Array<[string, string, string]> {
+		const properties: Array<[string, string, string]> = [];
 		this.enumerateChildren(node, (child) => {
 			if (child.props._docType == 'tuple' && child.children.length >= 2) {
 				const propNode = this.nodes.get(child.children[0]);
 				const valueNode = this.nodes.get(child.children[1]);
 				if (propNode != null && valueNode != null) {
-					properties.push([propNode.props.name, valueNode.props.name]);
+					properties.push([propNode.id, propNode.props.name, valueNode.props.name]);
 				}
 			}
 		});
@@ -178,11 +178,13 @@ export class TanaGraphImporter {
 
 	private convertMetaNode(node: TanaDoc | undefined, fragments: string[], indent: number) {
 		if (!node) return;
-		if (node.props.name) {
-			fragments.push('#' + node.props.name);
+		this.markSeen(node);
+		const props = this.collectNodeProperties(node);
+		for (const [id, , v] of props) {
+			if (id == 'SYS_A13') {
+				fragments.push('#' + v);
+			}
 		}
-		this.convertedNodes.add(node.id);
-		this.enumerateChildren(node, (child => this.convertMetaNode(child, fragments, indent)));
 	}
 
 	private generateLink(id: string): string {
