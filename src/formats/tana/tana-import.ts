@@ -3,6 +3,8 @@ import { TanaDatabase, TanaDoc } from './models/tana-json';
 const inlineRefRegex = /<span data-inlineref-node="(.+)"><\/span>/g;
 const boldRegex = /<b>(.*?)<\/b>/g;
 const italicRegex = /<i>(.*?)<\/i>/g;
+const strikeRegex = /<strike>(.*?)<\/strike>/g;
+const codeRegex = /<code>(.*?)<\/code>/g;
 
 export class TanaGraphImporter {
 	public result: Map<string, string> = new Map();
@@ -139,7 +141,8 @@ export class TanaGraphImporter {
 		if (indent > 0) {
 			const prefix = ' '.repeat(indent * 2) + '*';
 			const anchor = this.anchors.has(node.id) ? (' ^' + node.id.replace('_', '-')) : '';
-			fragments.push(prefix + ' ' + this.convertMarkup(node.props.name ?? '') + anchor);
+			const header = node.props._flags && ((node.props._flags & 2) != 0) ? '### ' : '';
+			fragments.push(prefix + ' ' + header + this.convertMarkup(node.props.name ?? '') + anchor);
 		}
 		this.enumerateChildren(node, (child) => {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
@@ -194,7 +197,9 @@ export class TanaGraphImporter {
 		return text
 			.replace(inlineRefRegex, (_, id) => this.generateLink(id))
 			.replace(boldRegex, (_, content) => '**' + content + '**')
-			.replace(italicRegex, (_, content) => '*' + content + '*');
+			.replace(italicRegex, (_, content) => '*' + content + '*')
+			.replace(strikeRegex, (_, content) => '~~' + content + '~~')
+			.replace(codeRegex, (_, content) => '`' + content + '`');
 	}
 
 	private markSeen(node: TanaDoc) {
