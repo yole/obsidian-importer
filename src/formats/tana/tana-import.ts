@@ -11,11 +11,14 @@ export class TanaGraphImporter {
 	private convertedNodes: Set<string> = new Set();
 	public fatalError: string | null;
 	public notices: string[] = [];
+	private anchors: Set<string> = new Set();
+	private topLevelNodes = new Map<string, [TanaDoc, string]>();
 
 	public importTanaGraph(data: string) {
 		this.tanaDatabase = JSON.parse(data) as TanaDatabase;
 		this.nodes = new Map();
 		this.tanaDatabase.docs.forEach(n => this.nodes.set(n.id, n));
+
 
 		const rootNode = this.tanaDatabase.docs.find(n => n.props.name && n.props.name.startsWith('Root node for'));
 		if (!rootNode) {
@@ -23,6 +26,8 @@ export class TanaGraphImporter {
 			return;
 		}
 		this.convertedNodes.add(rootNode.id);
+
+		this.prepareAnchors(rootNode);
 
 		const workspaceNode = this.nodes.get(rootNode.children[0]);
 		if (!workspaceNode) {
@@ -63,6 +68,10 @@ export class TanaGraphImporter {
 			}
 		});
 
+		for (const [node, file] of this.topLevelNodes.values()) {
+			this.convertNode(node, file);
+		}
+
 		this.notices.push('Converted ' + this.convertedNodes.size + ' nodes');
 		let unconverted = 0;
 		for (let node of this.tanaDatabase.docs) {
@@ -75,6 +84,20 @@ export class TanaGraphImporter {
 		}
 	}
 
+	private prepareAnchors(node: TanaDoc) {
+		if (node.props.name) {
+			for (let m of node.props.name.matchAll(inlineRefRegex)) {
+				this.anchors.add(m[1]);
+			}
+		}
+		this.enumerateChildren(node, (childNode) => {
+			if (childNode.props._ownerId != node.id) {
+				this.anchors.add(childNode.id);
+			}
+			this.prepareAnchors(childNode);
+		});
+	}
+
 	private importDailyNotes(node: TanaDoc) {
 		this.convertedNodes.add(node.id);
 		this.enumerateChildren(node, (yearNode) => {
@@ -83,7 +106,7 @@ export class TanaGraphImporter {
 				this.convertedNodes.add(weekNode.id);
 				this.enumerateChildren(weekNode, (dayNode) => {
 					if (dayNode.props.name) {
-						this.convertNode(dayNode, dayNode.props.name);
+						this.topLevelNodes.set(dayNode.id, [dayNode, dayNode.props.name]);
 					}
 				});
 			});
@@ -93,7 +116,7 @@ export class TanaGraphImporter {
 	private importLibraryNode(node: TanaDoc) {
 		this.convertedNodes.add(node.id);
 		this.enumerateChildren(node, (childNode) => {
-			this.convertNode(childNode, childNode.props.name);
+			this.topLevelNodes.set(childNode.id, [childNode, childNode.props.name]);
 		});
 	}
 
@@ -104,6 +127,9 @@ export class TanaGraphImporter {
 	}
 
 	private convertNodeRecursive(node: TanaDoc, fragments: string[], indent: number) {
+		if (node.id == 'hzqPclIxqasf') {
+			console.log('here');
+		}
 		if (node.props._docType == 'tuple') {
 			this.markSeen(node);
 			return;
@@ -115,7 +141,8 @@ export class TanaGraphImporter {
 		}
 		if (indent > 0) {
 			const prefix = ' '.repeat(indent * 2) + '*';
-			fragments.push(prefix + ' ' + this.convertMarkup(node.props.name ?? ''));
+			const anchor = this.anchors.has(node.id) ? (' ^' + node.id.replace('_', '-')) : '';
+			fragments.push(prefix + ' ' + this.convertMarkup(node.props.name ?? '') + anchor);
 		}
 		this.enumerateChildren(node, (child) => {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
@@ -137,7 +164,33 @@ export class TanaGraphImporter {
 	}
 
 	private generateLink(id: string): string {
-		return '[[' + (this.nodes.get(id)?.props?.name ?? '#') + ']]';
+		const tlNode = this.topLevelNodes.get(id);
+		if (tlNode) {
+			return '[[' + tlNode[1] + ']]';
+		}
+		const targetNode = this.nodes.get(id);
+		if (targetNode) {
+			const tlParent = this.findTopLevelParent(targetNode);
+			if (tlParent) {
+				const tlFileName = this.topLevelNodes.get(tlParent.id)![1];
+				return '[[' + tlFileName + '#^' + id.replace('_', '-') + ']]';
+			}
+		}
+
+		return '[[#]]';
+	}
+
+	private findTopLevelParent(node: TanaDoc): TanaDoc | null {
+		const ownerId = node.props._ownerId;
+		if (!ownerId) return null;
+		const ownerNode = this.nodes.get(ownerId);
+		if (ownerNode) {
+			if (this.topLevelNodes.has(ownerNode.id)) {
+				return ownerNode;
+			}
+			return this.findTopLevelParent(ownerNode);
+		}
+		return null;
 	}
 
 	private convertMarkup(text: string): string {
