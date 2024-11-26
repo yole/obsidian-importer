@@ -124,8 +124,30 @@ export class TanaGraphImporter {
 
 	private convertNode(node: TanaDoc, filename: string) {
 		const fragments: Array<string> = [];
+		const properties = this.collectNodeProperties(node);
+		if (properties.length > 0) {
+			fragments.push('---');
+			for (const [k, v] of properties) {
+				fragments.push(k + ': ' + v);
+			}
+			fragments.push('---');
+		}
 		this.convertNodeRecursive(node, fragments, 0);
 		this.result.set(filename + '.md', fragments.join('\n'));
+	}
+
+	private collectNodeProperties(node: TanaDoc): Array<[string, string]> {
+		const properties: Array<[string, string]> = [];
+		this.enumerateChildren(node, (child) => {
+			if (child.props._docType == 'tuple' && child.children.length >= 2) {
+				const propNode = this.nodes.get(child.children[0]);
+				const valueNode = this.nodes.get(child.children[1]);
+				if (propNode != null && valueNode != null) {
+					properties.push([propNode.props.name, valueNode.props.name]);
+				}
+			}
+		});
+		return properties;
 	}
 
 	private convertNodeRecursive(node: TanaDoc, fragments: string[], indent: number) {
