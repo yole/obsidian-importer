@@ -79,7 +79,7 @@ export class TanaGraphImporter {
 		for (let node of this.tanaDatabase.docs) {
 			if (!this.convertedNodes.has(node.id) && !node.id.startsWith('SYS') &&
 				node.props._docType != 'workspace') {
-				this.notices.push('Found unconverted node: ' + node.id);
+				this.notices.push('Found unconverted node: ' + this.pathFromRoot(node));
 				unconverted++;
 				if (unconverted == 20) break;
 			}
@@ -259,5 +259,15 @@ export class TanaGraphImporter {
 				this.notices.push('Node with id ' + childId + ' (parent ' + (node.props.name ?? node.id) + ') not found');
 			}
 		}
+	}
+
+	private pathFromRoot(node: TanaDoc): string {
+		if (node.props._ownerId) {
+			const owner = this.nodes.get(node.props._ownerId);
+			if (owner) {
+				return this.pathFromRoot(owner) + ' > ' + (node.props.name ?? node.id);
+			}
+		}
+		return node.props.name ?? node.id;
 	}
 }
