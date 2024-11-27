@@ -165,6 +165,14 @@ export class TanaGraphImporter {
 		if (node.props._metaNodeId) {
 			props = this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
 		}
+		if (node.associationMap) {
+			for (let id of Object.values(node.associationMap)) {
+				const associatedNode = this.nodes.get(id as string);
+				if (associatedNode) {
+					this.markSeen(associatedNode);
+				}
+			}
+		}
 		if (indent == 0 && props.tag) {
 			fragments.push('#' + props.tag);
 		}

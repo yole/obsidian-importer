@@ -13,6 +13,7 @@ export interface TanaDoc {
 	id: string;
 	props: TanaProps;
 	children: string[];
+	associationMap: any | undefined;
 }
 
 export interface TanaDatabase {
