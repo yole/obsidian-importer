@@ -55,7 +55,7 @@ export class TanaGraphImporter {
 			this.notices.push('Library node not found');
 		}
 
-		for (let suffix of ['_TRASH', '_SCHEMA', '_SIDEBAR_AREAS', '_USERS', '_SEARCHES', '_MOVETO', '_WORKSPACE']) {
+		for (let suffix of ['_TRASH', '_SCHEMA', '_SIDEBAR_AREAS', '_USERS', '_SEARCHES', '_MOVETO', '_WORKSPACE', '_QUICK_ADD']) {
 			const specialNode = this.nodes.get(rootNode.id + suffix);
 			if (specialNode != null) {
 				this.markSeen(specialNode);
@@ -80,9 +80,12 @@ export class TanaGraphImporter {
 		for (let node of this.tanaDatabase.docs) {
 			if (!this.convertedNodes.has(node.id) && !node.id.startsWith('SYS') &&
 				node.props._docType != 'workspace') {
-				this.notices.push('Found unconverted node: ' + this.pathFromRoot(node));
-				unconverted++;
-				if (unconverted == 20) break;
+				const path = this.pathFromRoot(node, rootNode);
+				if (path) {
+					this.notices.push('Found unconverted node: ' + path);
+					unconverted++;
+					if (unconverted == 50) break;
+				}
 			}
 		}
 	}
@@ -165,14 +168,7 @@ export class TanaGraphImporter {
 		if (node.props._metaNodeId) {
 			props = this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
 		}
-		if (node.associationMap) {
-			for (let id of Object.values(node.associationMap)) {
-				const associatedNode = this.nodes.get(id as string);
-				if (associatedNode) {
-					this.markSeen(associatedNode);
-				}
-			}
-		}
+		this.markAssociatedNodesSeen(node);
 		if (indent == 0 && props.tag) {
 			fragments.push('#' + props.tag);
 		}
@@ -197,6 +193,17 @@ export class TanaGraphImporter {
 				fragments.push(this.generateLink(child.id));
 			}
 		});
+	}
+
+	private markAssociatedNodesSeen(node: TanaDoc) {
+		if (node.associationMap) {
+			for (let id of Object.values(node.associationMap)) {
+				const associatedNode = this.nodes.get(id as string);
+				if (associatedNode) {
+					this.markSeen(associatedNode);
+				}
+			}
+		}
 	}
 
 	private convertMetaNode(node: TanaDoc | undefined, fragments: string[], indent: number): any {
@@ -268,6 +275,7 @@ export class TanaGraphImporter {
 				this.markSeen(metaNode);
 			}
 		}
+		this.markAssociatedNodesSeen(node);
 	}
 
 	private enumerateChildren(node: TanaDoc, callback: (child: TanaDoc) => void) {
@@ -284,13 +292,15 @@ export class TanaGraphImporter {
 		}
 	}
 
-	private pathFromRoot(node: TanaDoc): string {
+	private pathFromRoot(node: TanaDoc, root: TanaDoc): string | null {
 		if (node.props._ownerId) {
 			const owner = this.nodes.get(node.props._ownerId);
 			if (owner) {
-				return this.pathFromRoot(owner) + ' > ' + (node.props.name ?? node.id);
+				let pathFromRoot = owner == root ? 'root' : this.pathFromRoot(owner, root);
+				if (pathFromRoot == null) return null;
+				return pathFromRoot + ' > ' + node.props.name + ' [' + node.id + ']';
 			}
 		}
-		return node.props.name ?? node.id;
+		return null;
 	}
 }
