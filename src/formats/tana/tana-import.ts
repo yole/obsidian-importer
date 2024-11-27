@@ -203,6 +203,10 @@ export class TanaGraphImporter {
 		}
 		const targetNode = this.nodes.get(id);
 		if (targetNode) {
+			if (targetNode.props._docType == 'url') {
+				this.markSeen(targetNode);
+				return targetNode.props.name;
+			}
 			const tlParent = this.findTopLevelParent(targetNode);
 			if (tlParent) {
 				const tlFileName = this.topLevelNodes.get(tlParent.id)![1];
