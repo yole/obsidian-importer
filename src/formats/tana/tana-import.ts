@@ -161,6 +161,9 @@ export class TanaGraphImporter {
 		if (node.props._metaNodeId) {
 			props = this.convertMetaNode(this.nodes.get(node.props._metaNodeId), fragments, indent);
 		}
+		if (indent == 0 && props.tag) {
+			fragments.push('#' + props.tag);
+		}
 		if (indent > 0) {
 			const prefix = ' '.repeat(indent * 2) + '*';
 			const anchor = this.anchors.has(node.id) ? (' ^' + node.id.replace('_', '-')) : '';
@@ -168,7 +171,8 @@ export class TanaGraphImporter {
 			const checkbox = props.checkbox
 				? (node.props._done ? '[x] ' : '[ ] ')
 				: '';
-			fragments.push(prefix + ' ' + checkbox + header + this.convertMarkup(node.props.name ?? '') + anchor);
+			const tag = props.tag ? ' #' + props.tag : '';
+			fragments.push(prefix + ' ' + checkbox + header + this.convertMarkup(node.props.name ?? '') + tag + anchor);
 		}
 		this.enumerateChildren(node, (child) => {
 			if (child.props._ownerId === node.id) {  // skip nodes which are included by reference
@@ -187,7 +191,7 @@ export class TanaGraphImporter {
 		const props = this.collectNodeProperties(node);
 		for (const [id, , v] of props) {
 			if (id == 'SYS_A13') {
-				fragments.push('#' + v);
+				result.tag = v;
 			}
 			else if (id == 'SYS_A55') {
 				result.checkbox = true;
