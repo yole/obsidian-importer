@@ -37,6 +37,7 @@ export class TanaGraphImporter {
 			return;
 		}
 		this.convertedNodes.add(workspaceNode.id);
+		this.topLevelNodes.set(workspaceNode.id, [workspaceNode, workspaceNode.props.name]);
 
 		let metaNodeId = workspaceNode.props._metaNodeId;
 		if (metaNodeId) {
@@ -151,6 +152,9 @@ export class TanaGraphImporter {
 	}
 
 	private convertNodeRecursive(node: TanaDoc, fragments: string[], indent: number) {
+		if (node.props._docType == 'journal') {
+			return;
+		}
 		if (node.props._docType == 'tuple') {
 			this.markSeen(node);
 			return;
@@ -163,6 +167,9 @@ export class TanaGraphImporter {
 		}
 		if (indent == 0 && props.tag) {
 			fragments.push('#' + props.tag);
+		}
+		if (indent == 0 && node.props.description) {
+			fragments.push(node.props.description);
 		}
 		if (indent > 0) {
 			const prefix = ' '.repeat(indent * 2) + '*';
